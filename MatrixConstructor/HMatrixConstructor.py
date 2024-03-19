@@ -21,14 +21,15 @@ class QCMatrix(HMatrixConstructor):
     r"""朴素的QC-LDPC校验矩阵生成器
     Args:
         - Nbit：码长
-        - Mbit：源消息长
+        - Kbit：源消息长
         - Hb：基矩阵
     """
 
-    def __init__(self, Nbit, Mbit, Hb: Union[list, np.ndarray], device='cpu'):
+    def __init__(self, Nbit, Kbit, Hb: Union[list, np.ndarray], device='cpu'):
         super().__init__()
         self.Nbit = int(Nbit)
-        self.Mbit = int(Mbit)
+        self.Mbit = int(Nbit-Kbit)   # 校验长度
+        self.Kbit = int(Kbit)   # 源消息长
         self.mb, self.nb = Hb.shape
         self.z = int(self.Nbit / self.nb)
         assert self.Nbit % self.nb == 0 and self.Mbit % self.mb == 0 and self.z == self.Mbit / self.mb, '基矩阵与校验矩阵形状不匹配'
@@ -39,7 +40,7 @@ class QCMatrix(HMatrixConstructor):
         self.device = device
 
     def __repr__(self):
-        return f'朴素的QC-LDPC校验矩阵生成器 [码长：{self.Nbit}, 源消息长：{self.Mbit} ]'
+        return f'朴素的QC-LDPC校验矩阵生成器 [码长：{self.Nbit}, 源消息长：{self.Kbit} ]'
 
     @property
     def make(self):
@@ -151,7 +152,7 @@ class IEEE80106eQCMatrix(QCMatrix):
         ]
 
         Hb_list = [Hb1, Hb2, Hb3, Hb4, Hb5, Hb6]
-        z = Nbit / 24
+        z = Nbit / 24   # 扩展子矩阵长度
         Hb = Hb_list[Hb_index]
         Hb = np.array(Hb)
         mb, nb = Hb.shape
@@ -159,11 +160,11 @@ class IEEE80106eQCMatrix(QCMatrix):
             for j in range(nb):
                 if Hb[i, j] > 0:
                     Hb[i, j] = np.round(Hb[i, j] * z / 96)
-        Mbit = Nbit - Nbit * self.rate
-        super().__init__(Nbit=Nbit, Mbit=Mbit, Hb=Hb, device=device)
+        Mbit = Nbit - Nbit * self.rate      # 校验位长度
+        super().__init__(Nbit=Nbit, Kbit=Nbit*self.rate, Hb=Hb, device=device)
 
     def __repr__(self):
-        return f'IEEE802.16e标准的LDPC校验矩阵生成器 [码长：{self.Nbit}, 源消息长：{self.Mbit}, ' \
+        return f'IEEE802.16e标准的LDPC校验矩阵生成器 [码长：{self.Nbit}, 源消息长：{self.Kbit}, ' \
                f'码率：{self.rate}{", " + self.codetype if self.codetype is not None else ""}]'
 
     @property
