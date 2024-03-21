@@ -53,9 +53,13 @@ class BiArray:
     同样，也是支持张量切片操作的。
     """
 
-    def __init__(self, array: Union[list, np.ndarray]):
-        self.array = np.array(array, dtype=int)
-        self.shape = self.array.shape
+    def __init__(self, array: Union[list, np.ndarray, 'BiArray']):
+        if isinstance(array, BiArray):
+            self.array = array.array
+            self.shape = array.shape
+        else:
+            self.array = np.array(array, dtype=int)
+            self.shape = self.array.shape
 
     def __repr__(self):
         return f'二元域的张量, shape为{self.shape} \n '
@@ -87,6 +91,9 @@ class BiArray:
         result = self.array[indices]
         return BiArray(result)
 
+    def __setitem__(self, index, value:'BiArray'):
+        self.array[index] = value.array
+
     def inv(self):
         # 计算输入矩阵的行数和列数
         return inv_bin(self.array)
@@ -95,6 +102,10 @@ class BiArray:
     def numpy(self):
         """ 变为ndarray """
         return self.array
+
+    def reshape(self, shape:Union[int, tuple]):
+        result = self.array.reshape(shape)
+        return BiArray(result)
 
 
 

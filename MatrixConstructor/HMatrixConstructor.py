@@ -1,14 +1,18 @@
 import numpy as np
 from typing import Union
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 class HMatrixConstructor:
     r"""构造校验矩阵的基类class
     - 所有的构造方式需要从此类继承
     """
-
     def __init__(self):
-        pass
+        self.Kbit = None
+        self.Nbit = None
+        self.Mbit = None
+        self.H = None
 
     def __repr__(self):
         return f'Base class: VerificationMatrixConstructor'
@@ -24,7 +28,6 @@ class QCMatrix(HMatrixConstructor):
         - Kbit：源消息长
         - Hb：基矩阵
     """
-
     def __init__(self, Nbit, Kbit, Hb: Union[list, np.ndarray], device='cpu'):
         super().__init__()
         self.Nbit = int(Nbit)
@@ -39,23 +42,26 @@ class QCMatrix(HMatrixConstructor):
             self.Hb = np.array(self.Hb)
         self.device = device
 
+        self.H = None
+
     def __repr__(self):
         return f'朴素的QC-LDPC校验矩阵生成器 [码长：{self.Nbit}, 源消息长：{self.Kbit} ]'
 
     @property
     def make(self):
-        qc_matrix = np.zeros((self.Mbit, self.Nbit))
+        qc_matrix = np.zeros((self.Mbit, self.Nbit), dtype=int)
         for i in range(self.mb):
             for j in range(self.nb):
                 qij = self.Hb[i, j]
                 if qij == -1:
-                    expandMatrix = np.zeros((self.z, self.z))
+                    expandMatrix = np.zeros((self.z, self.z), dtype=int)
                 elif qij == 0:
-                    expandMatrix = np.eye(self.z)
+                    expandMatrix = np.eye(self.z, dtype=int)
                 else:
-                    expandMatrix = np.roll(np.eye(self.z), qij, axis=1)
+                    expandMatrix = np.roll(np.eye(self.z, dtype=int), qij, axis=1)
 
                 qc_matrix[i * self.z: (i + 1) * self.z, j * self.z: (j + 1) * self.z] = expandMatrix
+        self.H = qc_matrix
         return qc_matrix
 
 
@@ -69,6 +75,9 @@ class IEEE80106eQCMatrix(QCMatrix):
     """
 
     def __init__(self, Nbit, rate, codetype: str = None, device='cpu'):
+        """
+        :self.NonZero: 有三个非0的行数
+        """
         self.rateList = [1. / 2, 2. / 3, 3. / 4, 5. / 6]
         self.NbitList = [576, 672, 768, 864, 960, 1056, 1152, 1248, 1344, 1440,
                          1536, 1632, 1728, 1824, 1920, 2016, 2112, 2208, 2304]
@@ -152,15 +161,20 @@ class IEEE80106eQCMatrix(QCMatrix):
         ]
 
         Hb_list = [Hb1, Hb2, Hb3, Hb4, Hb5, Hb6]
+        NonZero_list = [5, 4, 3, 1, 6, 2]
+
         z = Nbit / 24   # 扩展子矩阵长度
+
+        self.NonZero = NonZero_list[Hb_index]      # 有三个非0的行数
         Hb = Hb_list[Hb_index]
-        Hb = np.array(Hb)
+        Hb = np.array(Hb, dtype=int)
         mb, nb = Hb.shape
         for i in range(mb):
             for j in range(nb):
                 if Hb[i, j] > 0:
-                    Hb[i, j] = np.round(Hb[i, j] * z / 96)
-        Mbit = Nbit - Nbit * self.rate      # 校验位长度
+                    Hb[i, j] = np.floor(Hb[i, j] * z / 96)
+        # Mbit = Nbit - Nbit * self.rate      # 校验位长度
+        self.Hb = Hb
         super().__init__(Nbit=Nbit, Kbit=Nbit*self.rate, Hb=Hb, device=device)
 
     def __repr__(self):
@@ -170,3 +184,20 @@ class IEEE80106eQCMatrix(QCMatrix):
     @property
     def make(self):
         return super().make
+
+    def plot_H2(self, matrix_size=None, isSave=None, filename=None, cmap='RdPu',
+                dpi=1000, figsize=(7,5), labelsize=8, linewidth=0.5, annot=False):
+        """绘制H2的对角线特性"""
+        if matrix_size is not None:
+            H2 = self.H[:matrix_size[0], self.Kbit:matrix_size[1]+self.Kbit]
+        else:
+            H2 = self.H[:, self.Kbit:]
+        plt.figure(figsize=figsize)
+        heatmap = sns.heatmap(H2, cmap=cmap, linewidths=linewidth, annot=annot)
+        plt.xticks(rotation=0)  # 旋转x轴刻度标签
+        plt.yticks(rotation=0)  # 旋转y轴刻度标签
+
+        heatmap.tick_params(labelsize=labelsize)
+        if isSave:
+            plt.savefig(filename, dpi=dpi, bbox_inches='tight')
+        plt.show()
