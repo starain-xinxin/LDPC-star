@@ -62,7 +62,7 @@ class BiArray:
             self.shape = self.array.shape
 
     def __repr__(self):
-        return f'二元域的张量, shape为{self.shape} \n '
+        return f'二元域的张量, shape为{self.shape} \n ' + f'{self.array}'
 
     def __add__(self, other: 'BiArray'):
         result = self.array + other.array
@@ -94,6 +94,9 @@ class BiArray:
     def __setitem__(self, index, value:'BiArray'):
         # 处理切片操作
         self.array[index] = value.array
+
+    def __eq__(self, other:'BiArray'):
+        return self.array == other.array
 
     def transpose(self, indices=None):
         result = self.array.transpose(indices)
