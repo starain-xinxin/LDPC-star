@@ -33,13 +33,15 @@ class QCMatrix(HMatrixConstructor):
         self.Nbit = int(Nbit)
         self.Mbit = int(Nbit-Kbit)   # 校验长度
         self.Kbit = int(Kbit)   # 源消息长
-        self.mb, self.nb = Hb.shape
-        self.z = int(self.Nbit / self.nb)
-        assert self.Nbit % self.nb == 0 and self.Mbit % self.mb == 0 and self.z == self.Mbit / self.mb, '基矩阵与校验矩阵形状不匹配'
 
         self.Hb = Hb
         if type(self.Hb) == list:
             self.Hb = np.array(self.Hb)
+
+        self.mb, self.nb = self.Hb.shape
+        self.z = int(self.Nbit / self.nb)
+        assert self.Nbit % self.nb == 0 and self.Mbit % self.mb == 0 and self.z == self.Mbit / self.mb, '基矩阵与校验矩阵形状不匹配'
+
         self.device = device
 
         self.H = None

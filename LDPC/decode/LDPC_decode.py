@@ -20,7 +20,7 @@ class Decoder:
     def __repr__(self):
         return f'Base class: Decoder'
 
-    def decode(self, code):
+    def decode(self, code, method):
         pass
 
 class LdpcDecoder(Decoder):
@@ -32,14 +32,26 @@ class LdpcDecoder(Decoder):
     def __repr__(self):
         return f'LDPC朴素解码器, 校验矩阵构造器：{self.matrixConstructor.__repr__()}'
 
-    def decode(self, code):
-        pass
+    def decode(self, code, method:Optional[str]):
+        """
+        解码函数
+        :param code：接收一维(n,)或者(1, n) Union[list, np.ndarray, BiArray]
+        :param method：接收一个字符串用于选择解码方法
+        :return decode：译码后的码字(k,1)
+        """
+        if method == 'BF':
+            decode, flag = self.BF_decode(code)
+            if not flag:
+                print(f'译码失败：{self.__repr__()} 译码方法{method}')
+            return decode.reshape((-1,1))[:self.Kbit]
+        else:
+            assert False, f'没有"{method}"译码方法'
 
     def BF_decode(self, code:Union[list, np.ndarray, BiArray], maxiter=BF_Decode_MAX_Iter):
         """
         基础的比特翻转算法
         :param maxiter: 最大迭代次数
-        :param code: 接受一维(n,)或者(1, n)
+        :param code: 接收一维(n,)或者(1, n)
         :returns
         """
         code = BiArray(code).reshape((-1, 1))  # 输入[n,1],BiArray

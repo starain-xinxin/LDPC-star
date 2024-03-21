@@ -15,7 +15,7 @@ class Encoder:
     def __repr__(self):
         return f'Base class: Encoder'
 
-    def encode(self):
+    def encode(self, method):
         pass
 
 
@@ -33,7 +33,7 @@ class QCLdpcEncoder(Encoder):
     def __repr__(self):
         return f'QC-LDPC编码器，校验矩阵构造器：{self.matrixConstructor.__repr__()}'
 
-    def encode(self):
+    def encode(self, x: Union[list, np.ndarray, BiArray], method: Optional[str] = 'Quasi Cyclic Bidiagonal Fast encode'):
         # TODO:
         pass
 
@@ -52,22 +52,23 @@ class QCLdpcEncoder(Encoder):
         z = self.z
         NonZero = self.matrixConstructor.NonZero
 
-        def Hb1_i_j(i,j):
-            return self.H[i*z: (i+1)*z, j*z: (j+1)*z]
+        def Hb1_i_j(i, j):
+            return self.H[i * z: (i + 1) * z, j * z: (j + 1) * z]
 
         def s_i(s, i):
-            return s[i*z: (i+1)*z]
+            return s[i * z: (i + 1) * z]
 
         p = []
         # 计算p0
-        Zh0 = self.H[0: z, kb*z: (kb+1)*z]
-        add_inv = Zh0 + self.H[NonZero*z: (NonZero+1)*z, kb*z: (kb+1)*z]
-        add_inv = add_inv + self.H[(mb-1)*z: mb*z,  kb*z: (kb+1)*z]
+        Zh0 = self.H[0: z, kb * z: (kb + 1) * z]
+        Zhr = self.H[NonZero * z: (NonZero + 1) * z, kb * z: (kb + 1) * z]
+        add_inv = Zh0 + Zhr
+        add_inv = add_inv + self.H[(mb - 1) * z: mb * z, kb * z: (kb + 1) * z]
         add_inv = ~add_inv
-        sum_num = BiArray(np.zeros(z)).reshape((-1, 1)) # 形状 [z, 1]
+        sum_num = BiArray(np.zeros(z)).reshape((-1, 1))  # 形状 [z, 1]
         for i in range(mb):
             for j in range(kb):
-                sum_num = sum_num + Hb1_i_j(i, j) @ s_i(s, j) # 形状 [z, z] * [z, 1] = [z, 1]
+                sum_num = sum_num + Hb1_i_j(i, j) @ s_i(s, j)  # 形状 [z, z] * [z, 1] = [z, 1]
         p0 = add_inv @ sum_num
         p.append(p0)
 
@@ -81,23 +82,18 @@ class QCLdpcEncoder(Encoder):
         # 计算剩余的mb-2个pi
         for i in range(2, mb):
             sumi = BiArray(np.zeros(z)).reshape((-1, 1))
+            if i == NonZero + 1:  # r+1处是特例
+                sumi = sumi + Zhr @ p[0]
             for j in range(kb):
-                sumi = sumi + Hb1_i_j(i-1, j) @ s_i(s, j)
-            pi = sumi + p[i-1]
+                sumi = sumi + Hb1_i_j(i - 1, j) @ s_i(s, j)
+            pi = sumi + p[i - 1]
             p.append(pi)
 
         # 重新还原出码字
         c = BiArray(np.zeros(self.Nbit)).reshape((-1, 1))
-        c[0:kb*z] = s
+        c[0:kb * z] = s
         for i in range(mb):
-            c[kb*z + i*z: kb*z + (i+1)*z] = p[i]
+            c[kb * z + i * z: kb * z + (i + 1) * z] = p[i]
         c.reshape(-1)
 
         return c
-
-
-
-
-
-
-
