@@ -92,7 +92,27 @@ class BiArray:
         return BiArray(result)
 
     def __setitem__(self, index, value:'BiArray'):
+        # 处理切片操作
         self.array[index] = value.array
+
+    def transpose(self, indices=None):
+        result = self.array.transpose(indices)
+        return BiArray(result)
+
+    @property
+    def T(self):
+        """
+        二元域张量转置
+
+        - 此方法可以当作属性调用
+        - 无论是多少维张量，均是对于最后两个维度进行交换(这与numpy不同)
+        """
+        dim_num = len(self.shape)
+        index = [i for i in range(dim_num)]
+        index[-1] = index[-1] - 1
+        index[-2] = index[-2] + 1
+        result = self.array.transpose(index)
+        return BiArray(result)
 
     def inv(self):
         # 计算输入矩阵的行数和列数
@@ -106,6 +126,3 @@ class BiArray:
     def reshape(self, shape:Union[int, tuple]):
         result = self.array.reshape(shape)
         return BiArray(result)
-
-
-
