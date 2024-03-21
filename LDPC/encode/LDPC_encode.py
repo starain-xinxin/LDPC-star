@@ -1,7 +1,7 @@
-import numpy as np
 from typing import Optional
-from MatrixConstructor.HMatrixConstructor import *
+
 from LDPC.BiArray import *
+from MatrixConstructor.HMatrixConstructor import *
 
 
 class Encoder:
@@ -48,7 +48,6 @@ class QCLdpcEncoder(Encoder):
         s = BiArray(x).reshape((-1, 1))  # 输入
         mb = self.mb
         kb = self.kb
-        nb = self.nb
         z = self.z
         NonZero = self.matrixConstructor.NonZero
 

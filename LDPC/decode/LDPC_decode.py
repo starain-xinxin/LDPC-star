@@ -1,7 +1,7 @@
-import numpy as np
 from typing import Optional
-from MatrixConstructor.HMatrixConstructor import *
+
 from LDPC.BiArray import *
+from MatrixConstructor.HMatrixConstructor import *
 
 BF_Decode_MAX_Iter = 50
 
