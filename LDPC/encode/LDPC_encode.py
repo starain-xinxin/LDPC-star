@@ -30,6 +30,9 @@ class QCLdpcEncoder(Encoder):
         self.kb = self.nb - self.mb
         self.H = BiArray(qcMatrix.make)
 
+    def reset(self, qcMatrix: Optional[QCMatrix]):
+        self.__init__(qcMatrix)
+
     def __repr__(self):
         return f'QC-LDPC编码器，校验矩阵构造器：{self.matrixConstructor.__repr__()}'
 

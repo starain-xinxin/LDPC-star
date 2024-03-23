@@ -21,7 +21,6 @@ class HMatrixConstructor:
         pass
 
 
-
 class QCMatrix(HMatrixConstructor):
     r"""朴素的QC-LDPC校验矩阵生成器
     Args:
@@ -49,6 +48,9 @@ class QCMatrix(HMatrixConstructor):
 
     def __repr__(self):
         return f'朴素的QC-LDPC校验矩阵生成器 [码长：{self.Nbit}, 源消息长：{self.Kbit} ]'
+
+    def reset(self, Nbit, Kbit, Hb: Union[list, np.ndarray], device='cpu'):
+        self.__init__(Nbit, Kbit, Hb, device)
 
     @property
     def make(self):
@@ -184,12 +186,15 @@ class IEEE80106eQCMatrix(QCMatrix):
         return f'IEEE802.16e标准的LDPC校验矩阵生成器 [码长：{self.Nbit}, 源消息长：{self.Kbit}, ' \
                f'码率：{self.rate}{", " + self.codetype if self.codetype is not None else ""}]'
 
+    def reset(self,Nbit, rate, codetype: str = None, device='cpu'):
+        self.__init__(Nbit, rate, codetype, device)
+
     @property
     def make(self):
         return super().make
 
     def plot_H2(self, matrix_size=None, isSave=None, filename=None, cmap='RdPu',
-                dpi=1000, figsize=(7,5), labelsize=8, linewidth=0.5, annot=False):
+                dpi=500, figsize=(7,5), labelsize=8, linewidth=0.5, annot=False):
         """绘制H2的对角线特性"""
         if matrix_size is not None:
             H2 = self.H[:matrix_size[0], self.Kbit:matrix_size[1]+self.Kbit]

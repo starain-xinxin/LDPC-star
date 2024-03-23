@@ -1,13 +1,12 @@
 from LDPC.decode.LDPC_decode import *
 from LDPC.encode.LDPC_encode import *
 from MatrixConstructor.HMatrixConstructor import *
-from typing import Union
-import time
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
-
+import pandas as pd
 from Chain.channel import *
+import math
 
 
 class Link:
@@ -62,16 +61,19 @@ class Link:
                f'解码器：{self.decoder.__repr__()}\n' \
                f'信道：{self.channel.__repr__()}\n'
 
-    def simulate(self, encode_method: Union[list, str], decode_method: Union[list, str],
-                 save_dir=None, data_num=500, SNR: list = None):
+    def simulate_BER(self, encode_method: Union[list, str], decode_method: Union[list, str],
+                     data_num=500, SNR: list = None,
+                     save_dir=None, figsize=(10.5,7), dpi=500):
         """
-        仿真函数
-        :param save_dir:
-        :param encode_method:
-        :param decode_method:
+        仿真函数:对于固定编码标准，对于多种编解码方式仿真在不同的SNR中的BER，并且
+        :param figsize:图片大小
+        :param save_dir:图片存储文件夹
+        :param encode_method:编码方案字符串列表
+        :param decode_method:解码方案字符串列表
         :param data_num:随机采样的码字数量
         :param SNR:仿真信噪比列表
-        :return:
+        :param dpi:保存图像的dpi
+        :return:误码率list
         """
         # 编解码方法列表化
         if isinstance(encode_method, str):
@@ -88,44 +90,59 @@ class Link:
         data = np.random.randint(2, size=(data_num, K))
 
         # 仿真
-        tt_encode = []
-        tt_decode = []
         BER = []
         for en_method in encode_method:
             for de_method in decode_method:
                 print(f'编码方法：{en_method}, 解码方法：{de_method}')
                 error_bit_list = []
-                t1 = []
-                t2 = []
                 for snr in SNR:
                     self.channel.reset(snr)
                     error_bit = 0
 
                     for x in tqdm(data, desc=f'SNR={snr}'):
                         # 编码 -->  信道 -->  解码
-                        t1_start_time = time.time()
                         code = self.encoder.encode(x, en_method, isVal=self.isVal)
-                        t1.append(time.time() - t1_start_time)
-
                         code = self.channel.forward(code)
-
-                        t2_start_time = time.time()
                         code = self.decoder.decode(code, de_method)
-                        t2.append(time.time() - t2_start_time)
 
                         # 计算误码个数
                         error_bit = error_bit + count_mismatch_elements(x, code)
+
                     # 计算在当前SNR下的平均误bit数
                     error_bit_list.append(error_bit / (K * data_num))
+
                 # 统计所有SNR下的误bit率
                 BER.append(error_bit_list)
-                # 对于某个编解码方法绘制SNR-BER图
 
-                # 对于某个编解码方法求出编解码速度(ms/code)
-                tt_encode.append(sum(t1) / len(t1) * 1000)
-                tt_decode.append(sum(t2) / len(t2) * 1000)
-                # 绘制编解码方法对应的速度
-        return SNR, encode_method, decode_method, tt_encode, tt_decode, BER
+        # 画图
+        self.plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=figsize, dpi=dpi)
+        return BER
+
+    @staticmethod
+    def plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=(10, 8), dpi=500):
+        sns.set_theme(style="darkgrid", palette="pastel")
+        plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
+        plt.rcParams['axes.unicode_minus'] = False
+        min_snr = min(SNR)
+        max_snr = max(SNR)
+        interval = math.floor((max_snr - min_snr) / len(SNR) * 2) / 2
+        i = 0
+        j = 0
+        for en_method in encode_method:
+            plt.figure(figsize=figsize)
+            for de_method in decode_method:
+                data = {'SNR': SNR, 'BER': BER[i * len(encode_method) + j]}
+                df = pd.DataFrame(data)
+                sns.lineplot(x='SNR', y='BER', data=df, label=f'{de_method}', linewidth=2.5)
+                j = j + 1
+            plt.yscale('log')
+            plt.title(f'{en_method}编码方案下，各种解码方案的误比特率')
+            plt.grid(which='major', linestyle='--', linewidth='0.3', color='gray')
+            plt.grid(which='minor', linestyle='-.', linewidth='0.25', color='gray')
+            plt.xticks(np.arange(min_snr, max_snr, interval))  # 从0到60，间隔为5
+            plt.savefig(save_dir + f'/BER-SNR:{en_method}编码方案.jpeg', dpi=dpi, bbox_inches='tight')
+            plt.show()
+            i = i + 1
 
 
 def count_mismatch_elements(vector1, vector2):
