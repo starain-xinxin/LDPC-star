@@ -15,7 +15,7 @@ class Encoder:
     def __repr__(self):
         return f'Base class: Encoder'
 
-    def encode(self, method):
+    def encode(self, x, method, isVal):
         pass
 
 
@@ -33,9 +33,24 @@ class QCLdpcEncoder(Encoder):
     def __repr__(self):
         return f'QC-LDPC编码器，校验矩阵构造器：{self.matrixConstructor.__repr__()}'
 
-    def encode(self, x: Union[list, np.ndarray, BiArray], method: Optional[str] = 'Quasi Cyclic Bidiagonal Fast encode'):
+    def encode(self, x: Union[list, np.ndarray, BiArray],
+               method: Optional[str] = 'Quasi Cyclic Bidiagonal Fast encode', isVal=False):
+        """
+        QC-LDPC编码函数统一接口
+        :param x: 输入的原码 Union[list, np.ndarray, BiArray]
+        :param method: 选择编码的方法
+        :param isVal: 是否进行校验，确认编码是否出错
+        :return: 编码code [n,1] BiArray
+        """
         # TODO:
-        pass
+        if method == 'Quasi Cyclic Bidiagonal Fast encode':
+            code = self.QuasiCyclicBidiagonal_Fastencode(x)
+            if isVal:
+                zero_s = BiArray(np.zeros(self.Mbit).reshape((-1,1)))
+                assert (self.H @ code == zero_s).all(), '编码出错'
+            return code
+        else:
+            assert False, f'没有"{method}"编码方法'
 
     def QuasiCyclicBidiagonal_Fastencode(self, x: Union[list, np.ndarray, BiArray]):
         """ IEEE802.16e标准下的fast encode方法 """

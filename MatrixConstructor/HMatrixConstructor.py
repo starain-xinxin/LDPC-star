@@ -21,6 +21,7 @@ class HMatrixConstructor:
         pass
 
 
+
 class QCMatrix(HMatrixConstructor):
     r"""朴素的QC-LDPC校验矩阵生成器
     Args:

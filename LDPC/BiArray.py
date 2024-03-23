@@ -62,7 +62,7 @@ class BiArray:
             self.shape = self.array.shape
 
     def __repr__(self):
-        return f'二元域的张量, shape为{self.shape} \n ' + f'{self.array}'
+        return f'BiArray, shape:{self.shape} \n ' + f'{self.array} \n'
 
     def __add__(self, other: 'BiArray'):
         result = self.array + other.array
