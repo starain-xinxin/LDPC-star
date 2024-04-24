@@ -15,7 +15,7 @@
         ｜- modem.py 各种调制解调器实现
     ｜- utils
         ｜- tool.py 全链路仿真的工具
-    ｜- csource GPU加速实现
+    ｜- csource cpp
     ｜- example 一些使用这些库的范例文件
     ｜- imag 放置一些结果图
 ```
