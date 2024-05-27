@@ -6,6 +6,7 @@ import seaborn as sns
 from tqdm import tqdm
 import pandas as pd
 from Chain.channel import *
+from Chain.modem import *
 import math
 
 
@@ -63,9 +64,11 @@ class Link:
 
     def simulate_BER(self, encode_method: Union[list, str], decode_method: Union[list, str],
                      data_num=500, SNR: list = None,
-                     save_dir=None, figsize=(10.5,7), dpi=500):
+                     save_dir=None, figsize=(10.5,7), dpi=500, is_save=False, imagID=0):
         """
         仿真函数:对于固定编码标准，对于多种编解码方式仿真在不同的SNR中的BER，并且
+        :param imagID:
+        :param is_save:是否保存图片
         :param figsize:图片大小
         :param save_dir:图片存储文件夹
         :param encode_method:编码方案字符串列表
@@ -83,7 +86,7 @@ class Link:
 
         # SNR
         if SNR is None:
-            SNR = [0, 0.2, 0.4, 0.6, 0.8, 1, 1.4, 1.8, 2.2, 2.6, 3, 3.5, 4, 5, 6, 7.5, 9, 12]
+            SNR = [0, 1, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 10]
 
         # 生成data
         K = self.matrix_constructor.Kbit
@@ -102,8 +105,12 @@ class Link:
                     for x in tqdm(data, desc=f'SNR={snr}'):
                         # 编码 -->  信道 -->  解码
                         code = self.encoder.encode(x, en_method, isVal=self.isVal)
-                        code = self.channel.forward(code)
-                        code = self.decoder.decode(code, de_method)
+                        # TODO: 这里要想一个办法适应软硬判决
+                        if de_method == 'SPA' or de_method == 'WBF':
+                            code = self.channel.forward(code, is_soft=True)
+                        else:
+                            code = self.channel.forward(code, is_soft=False)
+                        code = self.decoder.decode(code, de_method, channel=self.channel)
 
                         # 计算误码个数
                         error_bit = error_bit + count_mismatch_elements(x, code)
@@ -115,11 +122,11 @@ class Link:
                 BER.append(error_bit_list)
 
         # 画图
-        self.plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=figsize, dpi=dpi)
+        self.plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=figsize, dpi=dpi, is_save=is_save, imagID=imagID)
         return BER
 
     @staticmethod
-    def plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=(10, 8), dpi=500):
+    def plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=(10, 8), dpi=500, is_save=False, imagID=0):
         sns.set_theme(style="darkgrid", palette="pastel")
         plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
         plt.rcParams['axes.unicode_minus'] = False
@@ -140,7 +147,8 @@ class Link:
             plt.grid(which='major', linestyle='--', linewidth='0.3', color='gray')
             plt.grid(which='minor', linestyle='-.', linewidth='0.25', color='gray')
             plt.xticks(np.arange(min_snr, max_snr, interval))  # 从0到60，间隔为5
-            plt.savefig(save_dir + f'/BER-SNR:{en_method}编码方案.jpeg', dpi=dpi, bbox_inches='tight')
+            if is_save:
+                plt.savefig(save_dir + f'/BER-SNR:{en_method}编码方案-{imagID}.jpeg', dpi=dpi, bbox_inches='tight')
             plt.show()
             i = i + 1
 

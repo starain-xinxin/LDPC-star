@@ -5,7 +5,7 @@ def inv_bin(in_matrix):
     """
     一个二元域矩阵求逆的函数
 
-    - TODO：但对于输入的矩阵是否是可逆的问题，无法回答，无法报错，谨慎使用
+    - 对于输入的矩阵是否是可逆的问题，无法回答，无法报错，谨慎使用
     """
     # 计算输入矩阵的行数和列数
     m, n = in_matrix.shape
@@ -77,7 +77,6 @@ class BiArray:
 
     def __invert__(self):
         """ ~ 号重载为矩阵求逆 """
-        # TODO:
         result = self.inv()
         return BiArray(result)
 
