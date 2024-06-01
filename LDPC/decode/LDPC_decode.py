@@ -7,9 +7,10 @@ import Chain.channel
 from LDPC.BiArray import *
 from MatrixConstructor.HMatrixConstructor import *
 
-BF_Decode_MAX_Iter = 20
-SPA_Decode_MAX_Iter = 20
-WBF_Decode_MAX_Iter = 20
+BF_Decode_MAX_Iter = 25
+SPA_Decode_MAX_Iter = 25
+WBF_Decode_MAX_Iter = 25
+MSA_Decode_MAX_Iter = 25
 
 
 class Decoder:
@@ -30,6 +31,7 @@ class Decoder:
         pass
 
 
+# noinspection SpellCheckingInspection,DuplicatedCode
 class LdpcDecoder(Decoder):
     """ LDPC解码类的基类 """
 
@@ -60,11 +62,11 @@ class LdpcDecoder(Decoder):
                 print(f'译码失败：{self.__repr__()} 译码方法{method}')
             return decode.reshape(-1)[:self.Kbit].numpy
 
-        elif method == 'SPA' or method == 'LLR-BP' or method == 'BP':
+        elif method == 'LLR-BP' or method == 'BP':
             if max_iter is None:
-                decode, flag = self.SPA_decode(code, channel)
+                decode, flag = self.LLR_BP_decode(code, channel)
             else:
-                decode, flag = self.SPA_decode(code, channel, max_iter=max_iter)
+                decode, flag = self.LLR_BP_decode(code, channel, max_iter=max_iter)
             if (not flag) and display:
                 print(f'译码失败：{self.__repr__()} 译码方法{method}')
             return decode.reshape(-1)[:self.Kbit]
@@ -74,6 +76,24 @@ class LdpcDecoder(Decoder):
                 decode, flag = self.WBF_decode(code)
             else:
                 decode, flag = self.WBF_decode(code, max_iter=max_iter)
+            if (not flag) and display:
+                print(f'译码失败：{self.__repr__()} 译码方法{method}')
+            return decode.reshape(-1)[:self.Kbit]
+
+        elif method == 'SPA':
+            if max_iter is None:
+                decode, flag = self.WBF_decode(code)
+            else:
+                decode, flag = self.WBF_decode(code, max_iter=max_iter)
+            if (not flag) and display:
+                print(f'译码失败：{self.__repr__()} 译码方法{method}')
+            return decode.reshape(-1)[:self.Kbit]
+
+        elif method == 'MSA':
+            if max_iter is None:
+                decode, flag = self.MSA_decode(code, channel)
+            else:
+                decode, flag = self.MSA_decode(code, channel, max_iter=max_iter)
             if (not flag) and display:
                 print(f'译码失败：{self.__repr__()} 译码方法{method}')
             return decode.reshape(-1)[:self.Kbit]
@@ -112,7 +132,7 @@ class LdpcDecoder(Decoder):
         return code, False
 
     # noinspection SpellCheckingInspection
-    def SPA_decode(self, code:np.ndarray, channel:Chain.channel.Channel, max_iter=SPA_Decode_MAX_Iter):
+    def LLR_BP_decode(self, code:np.ndarray, channel:Chain.channel.Channel, max_iter=SPA_Decode_MAX_Iter):
         """
         SPA / LLR-BP算法
         本算法实现上利用了信道的BPSK调制的信息，因此不普适
@@ -233,3 +253,143 @@ class LdpcDecoder(Decoder):
                 break
 
         return z, flag
+
+    def SPA_decode(self, code, channel, max_iter=SPA_Decode_MAX_Iter):
+        """ SPA解码算法实现
+        TODO: 兼容性问题，接口不完全统一，算法效率可以提升
+        """
+        H = self.H.numpy
+        if isinstance(code, np.ndarray):
+            received_signal = code
+        else:
+            assert False, f'SumProduct解码error：输入类型为{type(code)},应为numpy.ndarray'
+        sigma = channel.std
+        decoded = np.zeros(received_signal.shape)
+        receivedP = self.pfunction(received_signal, sigma)
+        receivedP = receivedP.reshape(-1, H.shape[1])
+
+        flag = False
+        for j in range(len(receivedP)):
+            receivedPzero = receivedP[j]
+            qNeg = np.multiply(receivedPzero, H)
+            H_mask = H != 0
+            k = np.zeros(qNeg.shape)
+            for _ in range(max_iter):
+                rPos, rNeg = self.check2bit(qNeg, H_mask)
+                rowProductPos, qPostmp2 = self.bit2check(rPos, receivedPzero)
+                rowProductNeg, qNegtmp2 = self.bit2check(rNeg, receivedPzero, neg=True)
+                k[H_mask] = np.divide(1, qPostmp2[H_mask] + qNegtmp2[H_mask])
+                qNeg = np.multiply(k, qNegtmp2)
+
+            QtmpPos = np.multiply(1 - receivedPzero, rowProductPos)
+            QtmpNeg = np.multiply(receivedPzero, rowProductNeg)
+            K = np.divide(1, QtmpPos + QtmpNeg)
+            QPos = np.multiply(K, QtmpPos)
+            decoded[j * H.shape[1]:j * H.shape[1] + H.shape[1]] = QPos > 0.5
+            if np.all((H @ decoded) % 2 == 0):
+                flag = True
+
+        return decoded, flag
+
+    @staticmethod
+    def pfunction(received, sigma=1):
+        """ SPA辅助函数 """
+        return 1 / (1 + np.exp(2 * received / sigma**2))
+
+    @staticmethod
+    def check2bit(qNeg, H_mask):
+        """ SPA辅助函数 """
+        shape = qNeg.shape
+        rPos, rNeg = np.zeros(shape), np.zeros(shape)
+        qTmp = qNeg[H_mask].reshape(shape[0], -1)
+        qTmp = 1 - 2 * qTmp
+        colProduct = np.product(qTmp, axis=1)
+        rTmpPos = 0.5 + 0.5 * np.divide(np.full(qTmp.shape, colProduct.reshape(shape[0], 1)), qTmp)
+        rTmpNeg = 1 - rTmpPos
+        rPos[H_mask] = rTmpPos.flatten()
+        rNeg[H_mask] = rTmpNeg.flatten()
+        return rPos, rNeg
+
+    @staticmethod
+    def bit2check(rPos, receivedPzero, neg=False):
+        """ SPA辅助函数 """
+        rPosMask = rPos == 0
+        rPos[rPosMask] = 1
+        rowProductPos = np.product(rPos, axis=0)
+        rPostmp = np.divide(np.full(rPos.shape, rowProductPos), rPos)
+        rPos[rPosMask] = 0
+        rPostmp[rPosMask] = 0
+        if not neg:
+            qPostmp2 = np.multiply(1 - receivedPzero, rPostmp)
+        else:
+            qPostmp2 = np.multiply(receivedPzero, rPostmp)
+        return rowProductPos, qPostmp2
+
+    def MSA_decode(self, received_signal, channel, max_iter=10, norm_factor=0.5):
+        """ Min-Sum Algorithm
+        TODO:实现的有问题
+        """
+        H = self.H.numpy
+        N = H.shape[1]
+        self.norm_factor = norm_factor
+        self.HRowNum, self.HColNum = self.generate_indices(H)
+        vl = channel.initialize_llr(received_signal)
+        decoderData = np.zeros(N)
+
+        uml = np.zeros(np.sum(self.HColNum))
+        vml = np.zeros(np.sum(self.HColNum))
+
+        col_start = 0
+        for L in range(len(self.HColNum)):
+            vml[col_start:col_start+self.HColNum[L]] = vl[L]
+            col_start += self.HColNum[L]
+
+        flag = False
+        for iteration in range(max_iter):
+            # Check nodes information process
+            for L_r in range(len(self.HRowNum)):
+                L_col = self.HRowNum[L_r]
+                vmltemp = vml[L_col]
+                vml_mark = np.ones(vmltemp.shape)
+                vml_mark[vmltemp < 0] = -1
+                vml_mark = np.prod(vml_mark)
+                minvml = np.sort(np.abs(vmltemp))
+                for L_col_i in range(len(L_col)):
+                    if minvml[0] == abs(vmltemp[L_col_i]):
+                        if vmltemp[L_col_i] < 0:
+                            vmltemp[L_col_i] = -vml_mark * minvml[1]
+                        else:
+                            vmltemp[L_col_i] = vml_mark * minvml[1]
+                    else:
+                        if vmltemp[L_col_i] < 0:
+                            vmltemp[L_col_i] = -vml_mark * minvml[0]
+                        else:
+                            vmltemp[L_col_i] = vml_mark * minvml[0]
+                uml[L_col] = self.norm_factor * vmltemp
+
+            # Variable nodes information process
+            col_start = 0
+            qn0_1 = np.ones(N)
+            for L in range(len(self.HColNum)):
+                umltemp = uml[col_start:col_start+self.HColNum[L]]
+                temp = np.sum(umltemp)
+                qn0_1[L] = temp + vl[L]
+                umltemp = temp - umltemp
+                vml[col_start:col_start+self.HColNum[L]] = umltemp + vl[L]
+                col_start += self.HColNum[L]
+
+            # Decision decoding
+            decoderData[qn0_1 >= 0] = 0
+            decoderData[qn0_1 < 0] = 1
+            if np.all((H @ decoderData) % 2 == 0):
+                flag = True
+                break
+
+        return decoderData, flag
+
+    @staticmethod
+    def generate_indices(H):
+        r_mark, c_mark = np.where(H != 0)
+        HColNum = np.sum(H, axis=0)
+        HRowNum = [np.where(r_mark == row)[0] for row in range(H.shape[0])]
+        return HRowNum, HColNum

@@ -26,6 +26,9 @@ class Link:
             else:
                 assert 1, '编码器初始化错误'
 
+        # 码率
+        self.rate = self.encoder.Nbit / self.encoder.Kbit
+
         # 初始化解码器
         if isinstance(decoder, Decoder):
             self.decoder = decoder
@@ -63,10 +66,11 @@ class Link:
                f'信道：{self.channel.__repr__()}\n'
 
     def simulate_BER(self, encode_method: Union[list, str], decode_method: Union[list, str],
-                     data_num=500, SNR: list = None,
-                     save_dir=None, figsize=(10.5,7), dpi=500, is_save=False, imagID=0):
+                     data_num=500, SNR: list = None, is_Eb_N0=True,
+                     save_dir=None, figsize=(10.5, 7), dpi=500, is_save=False, imagID=0):
         """
         仿真函数:对于固定编码标准，对于多种编解码方式仿真在不同的SNR中的BER，并且
+        :param is_Eb_N0:
         :param imagID:
         :param is_save:是否保存图片
         :param figsize:图片大小
@@ -106,7 +110,8 @@ class Link:
                         # 编码 -->  信道 -->  解码
                         code = self.encoder.encode(x, en_method, isVal=self.isVal)
                         # TODO: 这里要想一个办法适应软硬判决
-                        if de_method == 'SPA' or de_method == 'WBF':
+                        if de_method == 'LLR-BP' or de_method == 'WBF' or de_method == 'SPA' \
+                                or de_method == 'MSA':
                             code = self.channel.forward(code, is_soft=True)
                         else:
                             code = self.channel.forward(code, is_soft=False)
@@ -117,17 +122,27 @@ class Link:
 
                     # 计算在当前SNR下的平均误bit数
                     error_bit_list.append(error_bit / (K * data_num))
-
+                    if error_bit / (K * data_num) == 0:
+                        break
+                # 填充未仿真的SNR位置为0
+                error_bit_list.extend([0] * (len(SNR) - len(error_bit_list)))
                 # 统计所有SNR下的误bit率
                 BER.append(error_bit_list)
 
         # 画图
-        self.plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=figsize, dpi=dpi, is_save=is_save, imagID=imagID)
-        return BER
+        if is_Eb_N0:
+            print(self.rate)
+            for i in range(len(SNR)):
+                SNR[i] += 10*math.log10(self.rate)
+            self.plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=figsize, dpi=dpi, is_save=is_save,
+                          imagID=imagID)
+        else:
+            raise NotImplementedError
+        return BER, SNR
 
     @staticmethod
-    def plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=(10, 8), dpi=500, is_save=False, imagID=0):
-        sns.set_theme(style="darkgrid", palette="pastel")
+    def plot_BER(BER, SNR, encode_method, decode_method, save_dir, figsize=(11, 7), dpi=500, is_save=False, imagID=0):
+        sns.set_theme(style="whitegrid", palette="muted")
         plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
         plt.rcParams['axes.unicode_minus'] = False
         min_snr = min(SNR)
@@ -138,9 +153,15 @@ class Link:
         for en_method in encode_method:
             plt.figure(figsize=figsize)
             for de_method in decode_method:
-                data = {'SNR': SNR, 'BER': BER[i * len(encode_method) + j]}
+                # data = {'SNR': SNR, 'BER': BER[i * len(encode_method) + j]}
+                # df = pd.DataFrame(data)
+                # 修改开始：过滤 BER 等于 0 的数据点
+                data = {'Eb/N0': SNR, 'BER': BER[i * len(encode_method) + j]}
                 df = pd.DataFrame(data)
-                sns.lineplot(x='SNR', y='BER', data=df, label=f'{de_method}', linewidth=2.5)
+                df = df[df['BER'] > 0]
+                # 修改结束
+                sns.lineplot(x='Eb/N0', y='BER', data=df, label=f'{de_method}', linewidth=1.8)
+                plt.scatter(df['Eb/N0'], df['BER'], s=17, zorder=3)
                 j = j + 1
             plt.yscale('log')
             plt.title(f'{en_method}编码方案下，各种解码方案的误比特率')
@@ -148,7 +169,7 @@ class Link:
             plt.grid(which='minor', linestyle='-.', linewidth='0.25', color='gray')
             plt.xticks(np.arange(min_snr, max_snr, interval))  # 从0到60，间隔为5
             if is_save:
-                plt.savefig(save_dir + f'/BER-SNR:{en_method}编码方案-{imagID}.jpeg', dpi=dpi, bbox_inches='tight')
+                plt.savefig(save_dir + f'/Eb-N0-SNR:{en_method}编码方案-{imagID}.jpeg', dpi=dpi, bbox_inches='tight')
             plt.show()
             i = i + 1
 
