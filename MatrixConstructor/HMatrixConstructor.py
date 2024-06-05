@@ -86,8 +86,8 @@ class IEEE80106eQCMatrix(QCMatrix):
         self.rateList = [1. / 2, 2. / 3, 3. / 4, 5. / 6]
         self.NbitList = [576, 672, 768, 864, 960, 1056, 1152, 1248, 1344, 1440,
                          1536, 1632, 1728, 1824, 1920, 2016, 2112, 2208, 2304]
-        assert rate in self.rateList, '选择了不在标准中的码率'
-        assert Nbit in self.NbitList, '选择了不在标准中的码长'
+        assert rate in self.rateList, f'选择了不在标准中的码率{rate}'
+        assert Nbit in self.NbitList, f'选择了不在标准中的码长{Nbit}'
         self.rate = rate
 
         Hb_index = None

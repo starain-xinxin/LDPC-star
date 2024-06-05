@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # 设置实验参数
-imagID = 4
+imagID = 5
 
 # 设置IEEE 802.16e协议下的参数，码字与码率
 Nbit = 768
@@ -30,6 +30,11 @@ decode_method = ['None', 'BF',  'WBF', 'SPA', 'LLR-BP']
 # decode_method = ['BF', 'None', 'WBF']
 
 # 仿真
-my_link.simulate_BER(encode_method, decode_method, data_num=100, save_dir='/Users/mac/Desktop/LDPC-star/imag',
+# my_link.simulate_BER(encode_method, decode_method, data_num=100, save_dir='/Users/mac/Desktop/LDPC-star/imag',
+#                      is_save=True, imagID=imagID,
+#                      SNR=[-3.01, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10])
+
+my_link.simulate_BER(encode_method, decode_method, data_num=50, save_dir='/home/yuanxinyu/LDPC-star/imag',
                      is_save=True, imagID=imagID,
-                     SNR=[-3.01, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10])
+                     SNR=[-3.01, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+

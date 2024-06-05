@@ -164,12 +164,12 @@ class Link:
                 plt.scatter(df['Eb/N0'], df['BER'], s=17, zorder=3)
                 j = j + 1
             plt.yscale('log')
-            plt.title(f'{en_method}编码方案下，各种解码方案的误比特率')
+            plt.title(f'{en_method}, the BER of various decoding schemes')
             plt.grid(which='major', linestyle='--', linewidth='0.3', color='gray')
             plt.grid(which='minor', linestyle='-.', linewidth='0.25', color='gray')
             plt.xticks(np.arange(min_snr, max_snr, interval))  # 从0到60，间隔为5
             if is_save:
-                plt.savefig(save_dir + f'/Eb-N0-SNR:{en_method}编码方案-{imagID}.jpeg', dpi=dpi, bbox_inches='tight')
+                plt.savefig(save_dir + f'/Eb-N0-SNR:{en_method}CodingScheme-{imagID}.jpeg', dpi=dpi, bbox_inches='tight')
             plt.show()
             i = i + 1
 
