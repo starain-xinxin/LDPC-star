@@ -62,7 +62,7 @@ class BiAwgn(Channel):
         # 计算噪声功率
         noise_power = signal_power / snr_linear
         # 计算标准差
-        noise_std = np.sqrt(noise_power)
+        noise_std = np.sqrt(noise_power / 2)
         self.std = noise_std
 
     def AddNoise(self, code: np.ndarray):

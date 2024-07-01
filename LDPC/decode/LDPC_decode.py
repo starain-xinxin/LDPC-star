@@ -71,6 +71,15 @@ class LdpcDecoder(Decoder):
                 print(f'译码失败：{self.__repr__()} 译码方法{method}')
             return decode.reshape(-1)[:self.Kbit]
 
+        elif method == 'LLR-BP-cuda' or method == 'BP-cuda':
+            if max_iter is None:
+                decode, flag = self.LLR_BP_Cuda_decode(code, channel)
+            else:
+                decode, flag = self.LLR_BP_Cuda_decode(code, channel, max_iter=max_iter)
+            if (not flag) and display:
+                print(f'译码失败：{self.__repr__()} 译码方法{method}')
+            return decode.reshape(-1)[:self.Kbit]
+
         elif method == 'WBF':
             if max_iter is None:
                 decode, flag = self.WBF_decode(code)
@@ -142,7 +151,7 @@ class LdpcDecoder(Decoder):
         if isinstance(code, np.ndarray):
             received_signal = code
         else:
-            assert False, f'SPA解码error：输入类型为{type(code)},应为numpy.ndarray'
+            assert False, f'LLR-BP解码error：输入类型为{type(code)},应为numpy.ndarray'
 
         # H 矩阵的行（校验节点）和列（变量节点）数量
         num_checks, num_vars = H.shape
@@ -207,6 +216,29 @@ class LdpcDecoder(Decoder):
                 break
 
         return decoded_bits, flag
+
+    def LLR_BP_Cuda_decode(self, code:np.ndarray, channel:Chain.channel.Channel, max_iter=SPA_Decode_MAX_Iter):
+        H = self.H.numpy
+        code = code.array
+        if isinstance(code, np.ndarray):
+            received_signal = code
+        else:
+            assert False, f'LLR-BP解码error：输入类型为{type(code)},应为numpy.ndarray'
+
+        # 从接收信号初始化 LLR 值
+        LLR_initial = channel.initialize_llr(received_signal)
+        decoded_bits = np.ones_like(received_signal, dtype=np.float32)
+
+        import sys
+        sys.path.append('/home/yuanxinyu/LDPC-star/csource/build')
+        import LLR_BP_CUDA
+
+        flag = 0
+        LLR_BP_CUDA.LLR_BP_CUDA(H, LLR_initial, received_signal, decoded_bits, flag, max_iter)
+
+        return decoded_bits, flag
+
+
 
     def WBF_decode(self, code:np.ndarray, max_iter=WBF_Decode_MAX_Iter):
         H = self.H.numpy
